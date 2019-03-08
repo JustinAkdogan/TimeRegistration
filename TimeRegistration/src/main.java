@@ -1,5 +1,7 @@
 
+
 import GUI.MainFrame;
+import GUI.SettingsFrame;
 
 public class main {
 
@@ -7,5 +9,9 @@ public class main {
 		MainFrame frame=new MainFrame();
 	    frame.setResizable(false);
 	    frame.setVisible(true);
+//		SettingsFrame settingsFrame = new SettingsFrame();
+//		settingsFrame.setResizable(false);
+//		settingsFrame.setVisible(true);
+
 	}
 }

@@ -13,6 +13,7 @@ import java.awt.event.MouseMotionAdapter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import javax.management.modelmbean.ModelMBean;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -21,6 +22,9 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
+import javax.swing.table.DefaultTableModel;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
@@ -31,116 +35,81 @@ import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.data.category.DefaultCategoryDataset;
 
 import Database.Database;
+import Functions.CreateWorkspace;
+import Functions.General;
+import Functions.Settings;
 
 public class MainFrame extends JFrame {
-	JButton closeBtn, minimizeBtn, post, lastDay, nextDay, timeRegistrationTable;
-	JTextField project, start, end, pause, description;
-	JLabel title,border,project_title, start_title, 
-	end_title,postedtimes_title, 
-	pause_title, description_title;
+	
+	//GUI Size
+	final short width = 600;
+	final short height = 800;
+	final short chartPanelWidth = 490;
+	boolean isConnectedToSQL = false;
+	
+	//Class Declarations
+	Database database = new Database();
+    General general = new General();
 	JPanel jp = new JPanel();
-	int width = 600;
-	int height = 800;
 	JScrollPane scrollPane = new JScrollPane();
+	DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+	JFreeChart chart = ChartFactory.createBarChart3D("Offene Arbeitszeiten","","", dataset, PlotOrientation.VERTICAL, false, false, false);
+	CategoryPlot catplot = chart.getCategoryPlot();
+	BarRenderer barRenderer = (BarRenderer) catplot.getRenderer();
+	ChartPanel chartPanel = new ChartPanel(chart);
+	String[] columnNames = {"", "", "", "",""};
+	CreateWorkspace createWorkspace = new CreateWorkspace();
+	
+	//Variables
 	private java.awt.Point initialClick;
-	
-	
 	String userid = System.getProperty("user.name");
-	
-    Database database = new Database();
-    
-    String[][] data = database.fetchAllTimeRegistrationsFromToday();
-    
-    String memberName = database.fetchForAndLastname();
-    
-
-    
+	int day = 0;
+	String memberName = "TEST";
+    Date date = new Date();
     SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+    
+    JTable table;
+
+    float [] weekHours = {0,0,0,0,0,0};
+     
+    
+    //GUI Elements
+	JButton closeBtn, minimizeBtn, post, lastDay, nextDay, timeRegistrationTable,settings;
+	JLabel title,border, postedtimes_title, statistic_title, hoursOfTheMonth, hoursOfTheWeek, hoursFromToday;
+	
 	
 	public MainFrame() {
-					
-		int chartPanelWidth = 490;
 		
-		database.fetchAllTimeRegistrationsFromTheWeek();
+		isConnectedToSQL = database.checkConnection();
 		
-		DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-		float [] weekHours = database.fetchAllTimeRegistrationsFromTheWeek();
-		dataset.setValue(weekHours[0], "", "Montag");
-		dataset.setValue(weekHours[1], "", "Dienstag");
-		dataset.setValue(weekHours[2], "", "Mittwoch");
-		dataset.setValue(weekHours[3], "", "Donnerstag");
-		dataset.setValue(weekHours[4], "", "Freitag");
+		table = new JTable(getTableData() , columnNames) {
+		    @Override
+		    public boolean isCellEditable(int row, int column) {    
+		    	if (row >= 1) {
+		    		String cellValue = (String) table.getValueAt(row-1, column); //#TODO FIX
+		    		if (cellValue == "" || cellValue == null) {
+		    			return false;
+		    		}else {
+		    			return true; 
+		    		}
+		    	}else {
+		    		return false;
+		    	}	    
+		    };
+		};
 		
-		
-		JFreeChart chart = ChartFactory.createBarChart3D("Offene Arbeitszeiten","","", dataset, PlotOrientation.VERTICAL, false, false, false);
-		CategoryPlot catplot = chart.getCategoryPlot();
-		BarRenderer barRenderer = (BarRenderer) catplot.getRenderer();
-		barRenderer.setBaseCreateEntities(true);
-		barRenderer.setSeriesPaint(0, Color.RED);
-		barRenderer.setBaseFillPaint(Color.YELLOW);
-		barRenderer.setAutoPopulateSeriesFillPaint(true);
-		barRenderer.setBasePaint(Color.YELLOW);
-		barRenderer.setSeriesFillPaint(0, Color.YELLOW);
-		barRenderer.setBaseOutlinePaint(Color.YELLOW);
-		barRenderer.setItemMargin(0.1);
-		barRenderer.setBase(8);
-		
-		ChartPanel chartPanel = new ChartPanel(chart);
-		
-		//chartPanel.setForeground(Color.RED);
-		chartPanel.setBounds((width-chartPanelWidth)/2, 600, chartPanelWidth, 200);
-		
-		
-		//Layout
+		//GUI Layout
 		setSize(width, height);
 		setLocationRelativeTo(null);
 		setUndecorated(true);
 		
-		project = new JTextField();
-		project.setBounds(55, 100, 80, 32);
-		project.setBorder(null);
+		//Functions
+		OnAfterSQLConnect();
+		setupBarChart();
+		refreshBarChart();
 		
-		project_title = new JLabel("Projekt Nr.");
-		project_title.setBounds(55,60,126,32);
 		
-		start = new JTextField();
-		start.setBounds(155, 100, 40, 32);
-		start.setBorder(null);
-		
-		start_title = new JLabel("Startzeit");
-		start_title.setBounds(155,60,126,32);
-		
-		end = new JTextField();
-		end.setBounds(215, 100, 40, 32);
-		end.setBorder(null);
-		
-		end_title = new JLabel("Endzeit");
-		end_title.setBounds(215,60,126,32);
-		
-		pause = new JTextField();
-		pause.setBounds(275, 100, 40, 32);
-		pause.setBorder(null);
-		
-		pause_title = new JLabel("Pause");
-		pause_title.setBounds(275,60,126,32);
-		
-		description = new JTextField();
-		description.setBounds(335, 100, 210, 32);
-		description.setBorder(null);
-		
-		description_title = new JLabel("Beschreibung");
-		description_title.setBounds(335,60,126,32);
-		
-		post = new JButton();
-		post.setBounds((width-100)/2, 150, 100, 32);
-		post.setText("Buchen");
-		//post.setBorderPainted(false);
-		//post.setBorder(null);
-		//post.setContentAreaFilled(false);
-		//post.setIcon(new ImageIcon("res/close_operation.png"));
-		Date date = new Date();
-		postedtimes_title = new JLabel("Gebuchte Zeiten: " + sdf.format(date)); //#TODO
-		postedtimes_title.setBounds((width-200)/2,200,200,32);
+		//Element Options
 		
 		closeBtn = new JButton();
 		closeBtn.setBounds(568, 0, 32, 32);
@@ -168,6 +137,31 @@ public class MainFrame extends JFrame {
 		border.setFont(new Font("Calibri",Font.PLAIN,22));
 		border.setForeground(Color.WHITE);
 		
+		statistic_title = new JLabel("Statistik");
+		statistic_title.setBounds(general.centerObject(80),50, 80, 30);
+		statistic_title.setForeground(Color.white);
+		statistic_title.setFont(new Font("Calibri", Font.PLAIN, 22)); 
+		
+		hoursOfTheMonth = new JLabel("Monat: 160.00 std.");
+		hoursOfTheMonth.setBounds(general.centerObject(120),70,120,50);
+		hoursOfTheMonth.setForeground(Color.white);
+		hoursOfTheMonth.setFont(new Font("Calibri", Font.PLAIN, 14)); 
+		
+		hoursOfTheWeek = new JLabel("Woche: " + general.getTotalHoursOfTheWeek(weekHours) + " std.");
+		hoursOfTheWeek.setBounds(general.centerObject(120),90,120,50);
+		hoursOfTheWeek.setForeground(Color.white);
+		hoursOfTheWeek.setFont(new Font("Calibri", Font.PLAIN, 14)); 
+		
+		hoursFromToday = new JLabel("Heute: " + general.getTotalHoursOfToday(weekHours) + "  std.");
+		hoursFromToday.setBounds(general.centerObject(120),110,120,50);
+		hoursFromToday.setForeground(Color.white);
+		hoursFromToday.setFont(new Font("Calibri", Font.PLAIN, 14)); 
+		
+		postedtimes_title = new JLabel("Gebuchte Zeiten: " + sdf.format(date));
+		postedtimes_title.setBounds(general.centerObject(260),200,260,32);
+		postedtimes_title.setFont(new Font("Calibri", Font.PLAIN, 22)); 
+		postedtimes_title.setForeground(Color.white);
+		
 		lastDay = new JButton();
 		lastDay.setBounds(0, 280, 32, 32);
 		lastDay.setBackground(new java.awt.Color(224, 74, 74,0));
@@ -192,33 +186,30 @@ public class MainFrame extends JFrame {
 		timeRegistrationTable.setContentAreaFilled(false);
 		timeRegistrationTable.setIcon(new ImageIcon("res/list.png"));
 		
-		String[] table_title = {
-				"A", "B", "C", "D","E"
-		};
-			
-		JTable table = new JTable(data, table_title);
+		settings = new JButton();
+		settings.setBounds(50, 0, 32, 32);
+		settings.setBackground(new java.awt.Color(224, 74, 74,0));
+		settings.setBorderPainted(false);
+		settings.setBorder(null);
+		settings.setContentAreaFilled(false);
+		settings.setIcon(new ImageIcon("res/settings.png"));
+						
 		table.setBounds((width-490)/2,250,490,320);
-		table.disable();
 		
-		//JavaFX
+		chartPanel.setBounds(general.centerObject(490), 600, 490, 200);
+		
 		//Adding Elements
+		add(statistic_title);
 		add(closeBtn);
 		add(minimizeBtn);
+		add(hoursOfTheMonth);
+		add(hoursOfTheWeek);
+		add(hoursFromToday);
 		add(title);
 		add(border);
-		add(project);
-		add(project_title);
-		add(start);
-		add(start_title);
-		add(end);
-		add(end_title);
-		add(pause);
-		add(pause_title);
-		add(description);
-		add(description_title);
-		add(post);
 		add(postedtimes_title);
 		add(timeRegistrationTable);
+		add(settings);
 		add(table);
 		add(chartPanel);
 		add(lastDay);
@@ -226,13 +217,10 @@ public class MainFrame extends JFrame {
 		add(jp);
 		validate();
 		
-		changeSetupToAuthorization();
-		
-		//getContentPane().setBackground(new java.awt.Color(128, 230, 242));	
 		jp.setBackground(new java.awt.Color(224, 74, 74));	
 		
-
-				
+		//GUI Trigger
+		
 		closeBtn.addActionListener(new ActionListener()
 		{
 			@Override
@@ -249,12 +237,21 @@ public class MainFrame extends JFrame {
 			}
 		});
 		
-		post.addActionListener(new ActionListener()
+		lastDay.addActionListener(new ActionListener()
 		{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				database.insertTimeRegistration(getInput());
-				restartGUI();
+				day = day + 1;
+				getTimeRegistrationsFromSelectedDay();
+			}
+		});
+		
+		nextDay.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				day = day - 1;
+				getTimeRegistrationsFromSelectedDay();
 			}
 		});
 		
@@ -262,25 +259,29 @@ public class MainFrame extends JFrame {
 		{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				TimeRegistrationsFrame timeRegistrationFrame = new TimeRegistrationsFrame();
+				if (isConnectedToSQL) {
+					if (database.getAuthorizationLevel() >= 1) {
+						TimeRegistrationsFrame timeRegistrationFrame = new TimeRegistrationsFrame();
+					}
+				}
 			}
 		});
 		
-		
-		project.addKeyListener(new KeyAdapter() {
-			public void keyTyped(KeyEvent e) {
-				//char input = e.getKeyChar();
-				//if((input < '0' || input > '9' && input != '\b')) {
-					//e.consume();
-					//changeSettings.changeSettings(delete_size_range.getText(),(byte) 8);
-				//}
-				//if (start.getText() == "") {
-					start.setText(database.fetchLastEndTimeFromToday());
-				//}
-			}
-			
+		table.getModel().addTableModelListener(new TableModelListener() {
+
+			  public void tableChanged(TableModelEvent e) {
+				  OnAfterValidateTable();
+			  }
 		});
 		
+		settings.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				SettingsFrame settingsFrame = new SettingsFrame();
+			}
+		});
+				
 		/* Moving the GUI */
 		  addMouseListener(new MouseAdapter() {
 		        public void mousePressed(MouseEvent e) {
@@ -309,31 +310,77 @@ public class MainFrame extends JFrame {
 		    });
 	}
 	
-	public String [] getInput() {
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		String [] values = new String [7];
-		values[0] = userid;
-		values[1] = project.getText();
-		values[2] = start.getText();
-		values[3] = end.getText();
-		values[4] = pause.getText().replace(",", ".");
-		values[5] = description.getText();
-		values[6] = sdf.format(System.currentTimeMillis());
-		return values;	
-	}
-	
-	public void restartGUI() {
-		MainFrame main = new MainFrame(); //#TODO Tabelle statt GUI aktualisieren
-		main.setVisible(true);
-		dispose();
-	}
-	
-	public void changeSetupToAuthorization() {
-		if (database.getAuthorizationLevel() < 1) {
-			timeRegistrationTable.setEnabled(false);
-			timeRegistrationTable.setVisible(false);
+	//Functions
+	private void OnAfterValidateTable() { 
+		 //Fetch last end time
+		 String lastEndTime = database.fetchLastEndTimeFromToday();
+		 if (table.getValueAt(table.getEditingRow(), 1) == null && table.getValueAt(table.getEditingRow(), 0) != null) {
+			 table.setValueAt(lastEndTime, table.getEditingRow(), 1);
+		 }
+		 
+		 String rowData [] = new String [8];
+		 rowData[0] = (String) table.getValueAt(table.getEditingRow(), 0);
+		 rowData[1] = (String) table.getValueAt(table.getEditingRow(), 1);
+		 rowData[2] = (String) table.getValueAt(table.getEditingRow(), 2);
+		 rowData[3] = (String) table.getValueAt(table.getEditingRow(), 3);
+		 rowData[4] = (String) table.getValueAt(table.getEditingRow(), 4);
+		
+		if (rowData[0] != null && rowData[1] != null && rowData[2] != null && rowData[4] != null) {
+			//Edit existing Dataset or Insert a new Dataset if all fields are filled
+			database.changeTimeRegistrationDataset(rowData, table.getEditingColumn());
+			//Refresh the Barchart if all fields are filled
+			refreshBarChart();
 		}
 	}
 	
+	private void OnAfterSQLConnect() {
+		if (isConnectedToSQL) {
+			memberName = database.fetchForAndLastname(userid);
+			weekHours = database.fetchAllTimeRegistrationsFromTheWeek();
+		}
+	}
+	
+	private String [][] getTableData() {
+		if (!isConnectedToSQL) {
+			String [][] data = {
+					{"NO","CONNECTION","TO","DATABASE","."},
+					{"NO","CONNECTION","TO","DATABASE","."}
+			};
+			return data;
+		}else {
+			String[][] data = database.fetchAllTimeRegistrationsFromToday();
+			return data;
+		}
+	}
+				
+	public void getTimeRegistrationsFromSelectedDay() {
+//		String [][] tableData = database.fetchTimeRegistrationsFromSelectedDay(day);
+//		for (int i=0; i < tableData.length; i++) {
+//			model.setValueAt(tableData[i], i, i);
+//		}
+	}
+	
+	private void setupBarChart() {
+		barRenderer.setBaseCreateEntities(true);
+		barRenderer.setSeriesPaint(0, Color.RED);
+		barRenderer.setBaseFillPaint(Color.YELLOW);
+		barRenderer.setAutoPopulateSeriesFillPaint(true);
+		barRenderer.setBasePaint(Color.YELLOW);
+		barRenderer.setSeriesFillPaint(0, Color.YELLOW);
+		barRenderer.setBaseOutlinePaint(Color.YELLOW);
+		barRenderer.setItemMargin(0.1);
+		if (!isConnectedToSQL) {
+			barRenderer.setBase(8);
+		}
+	}
+	
+	public void refreshBarChart() {
+		//float [] weekHours = database.fetchAllTimeRegistrationsFromTheWeek();
+		dataset.setValue(weekHours[0], "", "Montag");
+		dataset.setValue(weekHours[1], "", "Dienstag");
+		dataset.setValue(weekHours[2], "", "Mittwoch");
+		dataset.setValue(weekHours[3], "", "Donnerstag");
+		dataset.setValue(weekHours[4], "", "Freitag");
+	}	
 }
 

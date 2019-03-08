@@ -1,4 +1,6 @@
 package Database;
+import java.io.File;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -14,43 +16,70 @@ import java.util.Date;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
 
+import Functions.General;
 import Functions.Registration;
+import Functions.Settings;
 import GUI.Messages;
 
 public class Database {
 	
 	Connection con;
 	Registration registration = new Registration();
-
+	General general = new General();
+	Settings settings = new Settings();
+	final String userid = System.getProperty("user.name");
+	
+	//#TODO Probleme mit öffnen aller Zeiterfassungen
 	public Database() {
-		try {
-			Class.forName("com.mysql.jdbc.Driver");	
-		}catch(Exception ex) {
-			System.out.println(ex);
+		if (checkConnection()) {
+			String [] sqlConnection = settings.readAndGetSettings();
+			try {
+				this.con = DriverManager.getConnection("jdbc:"+ sqlConnection[1] +"://"+ sqlConnection[2] +"/"+ sqlConnection[3],sqlConnection[4],sqlConnection[5]);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 	
+	public boolean checkConnection() {
+		final String CHECK_SQL_QUERY = "SELECT 1";
+		try {
+			Class.forName("com.mysql.jdbc.Driver");	
+			String [] sqlConnection = settings.readAndGetSettings();
+			this.con = DriverManager.getConnection("jdbc:"+ sqlConnection[1] +"://"+ sqlConnection[2] +"/"+ sqlConnection[3],sqlConnection[4],sqlConnection[5]);
+			try {
+				final PreparedStatement statement = con.prepareStatement(CHECK_SQL_QUERY);
+				return true;
+			}catch(SQLException | NullPointerException e) {
+				
+			}
+		}catch(Exception ex) {
+			System.out.println(ex);
+		}
+		return false;
+	}
+		
+	//This function is for the Bar chart to fill them with information
 	public float [] fetchAllTimeRegistrationsFromTheWeek() {
 		Statement st;
 		ResultSet rs;
-		float dayInMillis = (float) 86400000;
+		float dayInMillis = 86400000;
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss");
-		String userid = System.getProperty("user.name");
+//		String userid = System.getProperty("user.name");
 		Calendar c = Calendar.getInstance();
 		c.setTime(new Date());
-		int dayOfWeek = c.get(Calendar.DAY_OF_WEEK)-1; //#TODO
-		//dayOfWeek = dayOfWeek--;
-		int dayOfWeekMinus1 = dayOfWeek;
-		dayOfWeekMinus1--;
+		int dayOfWeek = c.get(Calendar.DAY_OF_WEEK)-2; //#TODO
+		int dayOfWeekPlus1 = dayOfWeek;
+		dayOfWeekPlus1++;
 		float [] weekTimes = new float [5];
 		Time savedStartTime = null;
 		Time savedEndTime = null;
 		try {
-			for (int i = 0; i < dayOfWeek; i++) {
+			for (int i = 0; i < dayOfWeekPlus1; i++) {	
 				st = con.createStatement();
-				rs = st.executeQuery("SELECT * FROM zeiterfassungen WHERE date='" + sdf.format(System.currentTimeMillis()-((dayOfWeekMinus1 - i) * (dayInMillis)))+"' AND userid='"+ userid +"'");
-				String lastEndTime = "";
+				rs = st.executeQuery("SELECT * FROM zeiterfassungen WHERE date='" + sdf.format(System.currentTimeMillis()-((dayOfWeek - i) * (dayInMillis)))+"' AND userid='"+ userid +"'");
 				while(rs.next()) {
 					if (rs.isFirst()) {
 						savedStartTime = rs.getTime("start");
@@ -60,7 +89,7 @@ public class Database {
 					}
 				}
 				if (savedStartTime != null && savedEndTime != null) {
-					weekTimes[i] = getTotalHours(savedStartTime,savedEndTime);
+					weekTimes[i] = general.calculateHoursForBarChart(savedStartTime,savedEndTime);
 				}
 					
 			}
@@ -70,12 +99,13 @@ public class Database {
 		}
 		return null;
 	}
-	
+		
+	//This function gets the last Endtime from today to preassign the next Starttime in the table
 	public String fetchLastEndTimeFromToday() {
 		Statement st;
 		ResultSet rs;
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		String userid = System.getProperty("user.name");
+		//String userid = System.getProperty("user.name");
 		try {
 			st = con.createStatement();
 			rs = st.executeQuery("SELECT * FROM zeiterfassungen WHERE date='" + sdf.format(System.currentTimeMillis())+"' AND userid='"+ userid +"'");
@@ -90,12 +120,12 @@ public class Database {
 		return null;
 	}
 	
-	
+	//This function get all Time registrations of tdoay from the current user to fill the table with information
 	public String [] [] fetchAllTimeRegistrationsFromToday() {
 		Statement st;
 		ResultSet rs;
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		String userid = System.getProperty("user.name");
+		//String userid = System.getProperty("user.name");
 		try {
 			st = con.createStatement();
 			rs = st.executeQuery("SELECT * FROM zeiterfassungen WHERE date='" + sdf.format(System.currentTimeMillis())+"' AND userid='"+ userid +"'");
@@ -120,45 +150,10 @@ public class Database {
 		}
 		return null;
 	}
-	
-	public float getTotalHours(Time savedStartTime, Time savedEndTime ) {
-		int savedStartHours = savedStartTime.getHours() * (60 * 60);
-		int savedStartMinutes = savedStartTime.getMinutes() * 60;
-		int savedStartSeconds = savedStartHours + savedStartMinutes;
 		
-		int savedEndHours = savedEndTime.getHours() * (60 * 60);
-		int savedEndMinutes = savedEndTime.getMinutes() * 60;
-		int savedEndSeconds = savedEndHours + savedEndMinutes;
-		
-		float differenceInSeconds = savedEndSeconds - savedStartSeconds;	
-		float differenceInHours = differenceInSeconds / 3600;
-		
-		return differenceInHours;
-	}
-	
-	
-	
-	public void insertTimeRegistration(String [] values) {
-		PreparedStatement st;
-		ResultSet rs;
-	     try {	
-			String query = "INSERT INTO zeiterfassungen (userid,projectid,start,end,pause,description,date) VALUES (?,?,?,?,?,?,?)";
-			st = con.prepareStatement(query);
-			st.setString(1, values[0]);
-			st.setString(2, values[1]);
-			st.setString(3, values[2]);
-			st.setString(4, values[3]);
-			st.setString(5, values[4]);
-			st.setString(6, values[5]);
-			st.setString(7, values[6]);
-			st.execute();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-	}
-	
+	//This function checks if the current user is new to the system
 	private void checkIfUserExists() {
-		String userid = System.getProperty("user.name");
+//		String userid = System.getProperty("user.name");
 		Statement st;
 		ResultSet rs;
 		try {
@@ -172,11 +167,12 @@ public class Database {
 		}
 	}
 	
+	//This function creates a new User
 	private void createNewUser() {
 		PreparedStatement st;
 		ResultSet rs;
 		String [] memberName = new String [3];
-		String userid = System.getProperty("user.name");
+//		String userid = System.getProperty("user.name");
 		memberName = registration.registrationMessage();
 	     try {	
 			String query = "INSERT INTO mitarbeiter (forname,lastname,computername,authorization) VALUES (?,?,?,?)";
@@ -192,14 +188,14 @@ public class Database {
 		}
 	}
 	
-	public String fetchForAndLastname() {
-		String userid = System.getProperty("user.name");
+	//This function gets the fullname of the current user
+	public String fetchForAndLastname(String UserID) {
 		Statement st;
 		ResultSet rs;
 		String memberName= "";
 		try {
 			st = con.createStatement();
-			rs = st.executeQuery("SELECT * FROM mitarbeiter WHERE computername='"+ userid +"'");
+			rs = st.executeQuery("SELECT * FROM mitarbeiter WHERE computername='"+ UserID +"'");
 			if (!rs.next()) {
 				createNewUser();
 			}
@@ -213,8 +209,9 @@ public class Database {
 		return memberName;
 	}
 	
+	//This function gets the AuthorizationLevel from the current user
 	public int getAuthorizationLevel() {
-		String userid = System.getProperty("user.name");
+//		String userid = System.getProperty("user.name");
 		Statement st;
 		ResultSet rs;
 		int authorizationLevel = 0;
@@ -231,17 +228,19 @@ public class Database {
 		return 0;
 	}
 	
+	//This function gets all Time Registrations ordered by date
 	public String [][] fetchAllTimeRegistrationEntries(){
 		Statement st;
 		ResultSet rs;
 		try {
 			st = con.createStatement();
-			rs = st.executeQuery("SELECT * FROM zeiterfassungen ORDER BY userid");
-			String records [][] = new String [20][7]; //#TODO 
+			rs = st.executeQuery("SELECT * FROM zeiterfassungen ORDER BY date DESC");
 			int counter = 0;
+			int datasets = 0;
+			String records [][] = new String [countAllTimeRegistrationDatasets()][7];
 			while(rs.next()) {
 				records[counter][0] = rs.getString("date");
-				records[counter][1] = fetchForAndLastname();
+				records[counter][1] = fetchForAndLastname(rs.getString("userid"));
 				records[counter][2] = rs.getString("projectid");
 				records[counter][3] = rs.getString("start");
 				records[counter][4] = rs.getString("end");
@@ -255,5 +254,228 @@ public class Database {
 		}
 		return null;
 	}
+	
+	//This function count all Time Registration Datasets to create the array in the function above
+	public int countAllTimeRegistrationDatasets() {
+		Statement st;
+		ResultSet rs;
+		try {
+			st = con.createStatement();
+			rs = st.executeQuery("SELECT * FROM zeiterfassungen");
+			int counter = 0;
+			while(rs.next()) {
+				counter++;
+			}
+			return counter;
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return 0;
+	}
+	
+	//This function edit a existing dataset if the table data has changed
+	public void changeTimeRegistrationDataset(String fields [], int changedColumn) {
+		PreparedStatement st;
+		if (fields[3] != null) {
+			fields[3] = fields[3].replaceAll(",", ".");
+		}
+		try {
+			String query = "UPDATE zeiterfassungen SET projectid=?,start=?,end=?,pause=?,description=? WHERE ";
+			if (changedColumn != 0) { query += "projectid='" + fields[0] + "' AND ";}
+			if (changedColumn != 1) { query += "start='" + fields[1] + "' AND ";}
+			if (changedColumn != 2) { query += "end='" + fields[2] + "' AND ";}
+			if (changedColumn != 3) { 
+				if (changedColumn != 4) {
+					query += "pause='" + fields[3] + "' AND ";
+				}else {
+					query += "pause='" + fields[3] + "'";
+				}
+			}
+			if (changedColumn != 4) { query += "description='" + fields[4] + "'";}
+			st = con.prepareStatement(query);
+			st.setString(1, fields[0]);
+			st.setString(2, fields[1]);
+			st.setString(3, fields[2]);
+			st.setString(4, fields[3]);
+			st.setString(5, fields[4]);
+			int success = st.executeUpdate();
+			if (success <= 0) {
+				createNewTimeRegistrationDataset(fields);
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	//This function creates a new Dataset
+	public void createNewTimeRegistrationDataset(String fields []) {
+		PreparedStatement st;
+		ResultSet rs;
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		if (fields[3] == null) {
+			fields[3] = "0";
+		}
+	     try {	
+			String query = "INSERT INTO zeiterfassungen (userid,projectid,start,end,pause,description,date) VALUES (?,?,?,?,?,?,?)";
+			st = con.prepareStatement(query);
+			st.setString(1, userid);
+			st.setString(2, fields[0]);
+			st.setString(3, fields[1]);
+			st.setString(4, fields[2]);
+			st.setString(5, fields[3]);
+			st.setString(6, fields[4]);
+			st.setString(7, sdf.format(System.currentTimeMillis()));
+			st.execute();		
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public String [][] filterTimeRegistrationDatasets(String fields[]) {
+		Statement st;
+		ResultSet rs;
+		try {
+			st = con.createStatement();
+			String query = "SELECT * FROM zeiterfassungen WHERE ";
+			if (!fields[0].isEmpty()) {
+				query += "date='" + fields[0] + "' AND ";
+			}
+			if (!fields[1].isEmpty()) {
+				query += "userid='" + fields[1] + "' AND ";
+			}
+			if (!fields[2].isEmpty()) {
+				query += "projectid='" + fields[2] + "' AND ";
+			}
+			if (!fields[3].isEmpty()) {
+				query += "start='" + fields[3] + "' AND ";
+			}
+			if (!fields[4].isEmpty()) {
+				query += "end='" + fields[4] + "' AND ";
+			}
+			if (!fields[5].isEmpty()) {
+				query += "pause='" + fields[5] + "' AND ";
+			}
+			if (!fields[6].isEmpty()) {
+				query += "description='" + fields[6] + "'";
+			}
+			if (fields[6].isEmpty() || fields[5].isEmpty() || fields[4].isEmpty() || fields[3].isEmpty() || fields[2].isEmpty() || fields[1].isEmpty() || fields[0].isEmpty()) {
+				if (query.substring(query.length()-4, query.length()).contains("AND")) {
+					query = query.substring(0, query.length()-4);
+				}
+			}
+			rs = st.executeQuery(query);
+			int datasets = 0;
+			String records [][] = new String [countFilteredTimeRegistrationDatasets(query)][7]; //#TODO
+			int rowCounter = 0;
+			while(rs.next()) {
+				records[rowCounter][0] = rs.getString("date");
+				records[rowCounter][1] = fetchForAndLastname(rs.getString("userid"));
+				records[rowCounter][2] = rs.getString("projectid");
+				records[rowCounter][3] = rs.getString("start");
+				records[rowCounter][4] = rs.getString("end");
+				records[rowCounter][5] = rs.getString("pause");
+				records[rowCounter][6] = rs.getString("description");
+				rowCounter++;
+			}
+			return records;
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	
+	private int countFilteredTimeRegistrationDatasets(String query) {
+		Statement st;
+		ResultSet rs;
+		try {
+			st = con.createStatement();
+			rs = st.executeQuery(query);
+			int datasets = 0;
+			while(rs.next()) {
+				datasets++;
+			}
+			return datasets;
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return 0;
+		
+	}
+	
+	public String [][] fetchTimeRegistrationsFromSelectedDay(int days) {
+		Statement st;
+		ResultSet rs;
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		float dayInMillis = 86400000;
+		try {
+			st = con.createStatement();
+			String query = "SELECT * FROM zeiterfassungen WHERE userid='" + userid + "' AND date=' " + sdf.format(System.currentTimeMillis()-((days) * (dayInMillis))) + "'";
+			String tableData [][] = new String [20][6];
+			rs = st.executeQuery(query);
+			
+			int counter = 0;
+			while(rs.next()) {
+//				if (counter == 0) {
+//					//tableData[0][0] = setColumnNames(); 
+//				}else {
+					tableData[0][0] = rs.getString("projectid");
+					tableData[0][1] = rs.getString("start");
+					tableData[0][2] = rs.getString("end");
+					tableData[0][3] = rs.getString("pause");
+					tableData[0][4] = rs.getString("description");
+					counter++;
+				//}
+			}
+			return tableData;
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	public String [] setColumnNames() {
+		String columnNames [] = {"Projekt","Startzeit","Endzeit","Pause","Beschreibung"}; 
+		return columnNames;
+	}
+	
+//	public void fetchHoursOfTheMonth() {
+//		Statement st;
+//		ResultSet rs;
+//		float dayInMillis = (float) 86400000;
+//		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+//		SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss");
+//		String userid = System.getProperty("user.name");
+//		Calendar c = Calendar.getInstance();
+//		c.setTime(new Date());
+//		int dayOfMonth = c.get(Calendar.DAY_OF_MONTH); 
+//		int dayOfMonthMinus1 = dayOfMonth--;
+//		float [] monthTimes = new float [30];
+//		Time savedStartTime = null;
+//		Time savedEndTime = null;
+//		try {
+//			for (int i = 0; i < 30; i++) {
+//				st = con.createStatement();
+//				rs = st.executeQuery("SELECT * FROM zeiterfassungen WHERE date='" + sdf.format(System.currentTimeMillis()-((dayOfMonthMinus1 - i) * (dayInMillis)))+"' AND userid='"+ userid +"'");
+//				String lastEndTime = "";
+//				while(rs.next()) {
+//					if (rs.isFirst()) {
+//						savedStartTime = rs.getTime("start");
+//					}
+//					if (rs.isLast()) {
+//						savedEndTime = rs.getTime("end");
+//					}
+//				}
+//				if (savedStartTime != null && savedEndTime != null) {
+//					monthTimes[i] = getTotalHours(savedStartTime,savedEndTime);
+//					System.out.println(monthTimes[i]);
+//				}	
+//			}
+//		} catch (SQLException e) {
+//			e.printStackTrace();
+//		}
+//	}
+//		
+
 }
 
