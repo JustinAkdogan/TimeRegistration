@@ -4,6 +4,8 @@ import java.sql.Time;
 import java.util.Calendar;
 import java.util.Date;
 
+import javax.swing.JOptionPane;
+
 public class General {
 	
 	public float getTotalHoursOfToday(float [] weekTimes) {
@@ -61,6 +63,19 @@ public class General {
 		float differenceInHours = differenceInSeconds / 3600;
 		
 		return differenceInHours;
+	}
+	
+	public int checkAuthorizationKey(String key) {
+		if (key.contains("admin123")) {
+			JOptionPane.showMessageDialog(null, "You're now registered as Administrator", "Account upgrade succeed", JOptionPane.PLAIN_MESSAGE);
+			return 2;
+		}else if (key.contains("verwaltung123")) {
+			JOptionPane.showMessageDialog(null, "You're now registered as Manager", "Account upgrade succeed", JOptionPane.PLAIN_MESSAGE);
+			return 1;
+		}else if (!key.isEmpty()) {
+			JOptionPane.showMessageDialog(null, "Wrong authorization key!", "Account upgrade failed", JOptionPane.PLAIN_MESSAGE);
+		}
+		return 0;
 	}
 
 

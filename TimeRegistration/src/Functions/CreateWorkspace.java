@@ -11,7 +11,7 @@ public class CreateWorkspace {
 	
 	public CreateWorkspace() {
 		
-		settings.readAndGetSettings();
+		//settings.readAndGetSettings();
 		
 		File settings_file = new File(programPath + "\\Settings.ini");
 		File sys_folder = new File(programPath);

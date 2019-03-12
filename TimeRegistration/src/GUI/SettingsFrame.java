@@ -13,9 +13,12 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 
+import Database.Database;
 import Functions.General;
 import Functions.Settings;
 
@@ -28,12 +31,19 @@ public class SettingsFrame extends JFrame {
 	final short height = 400;
 	private java.awt.Point initialClick;
 	
-	JButton closeBtn, minimizeBtn, submitSettings;
-	JLabel title,border, connection_type_title,server_title, database_title, username_title, password_title;
-	JTextField connection_type,server,database,username,password;
+	JButton closeBtn, minimizeBtn, testSQLConnection, saveSettings;
+	JLabel title,border, connection_type_title,server_title, database_title, username_title, password_title,
+	forname_title,lastname_title,authorizationkey_title,status;
+	JTextField connection_type,server,database,username,password,forname,lastname;
+	JPasswordField authorizationkey;
 	JPanel jp = new JPanel();
+	Database databaseConnection = new Database();
+	String inputBackup [];
+	
+	String computername = System.getProperty("user.name");
 	
 	public SettingsFrame() {
+				
 		//Layout
 		setSize(width, height);
 		setLocationRelativeTo(null);
@@ -55,8 +65,8 @@ public class SettingsFrame extends JFrame {
 		minimizeBtn.setContentAreaFilled(false);
 		minimizeBtn.setIcon(new ImageIcon("res/minimize_operation.png"));
 		
-		title = new JLabel("SQL Configuration");
-		title.setBounds(general.centerObject(190),0,190,32);
+		title = new JLabel("Setup");
+		title.setBounds(general.centerObject(100),0,100,32);
 		title.setFont(new Font("Calibri",Font.PLAIN,22));
 		title.setForeground(Color.WHITE);
 		
@@ -67,46 +77,91 @@ public class SettingsFrame extends JFrame {
 		border.setForeground(Color.WHITE);
 		
 		connection_type_title = new JLabel("Connection Type");
-		connection_type_title.setBounds(50,50,120,32);
+		connection_type_title.setBounds(50,110,120,32);
 		connection_type_title.setFont(new Font("Calibri",Font.PLAIN,14));
 		connection_type_title.setForeground(Color.WHITE);
 		
 		database_title = new JLabel("Database");
-		database_title.setBounds(170,50,120,32);
+		database_title.setBounds(170,110,120,32);
 		database_title.setFont(new Font("Calibri",Font.PLAIN,14));
 		database_title.setForeground(Color.WHITE);
 		
 		username_title = new JLabel("Username");
-		username_title.setBounds(290,50,120,32);
+		username_title.setBounds(290,110,120,32);
 		username_title.setFont(new Font("Calibri",Font.PLAIN,14));
 		username_title.setForeground(Color.WHITE);
 		
 		password_title = new JLabel("Password");
-		password_title.setBounds(410,50,120,32);
+		password_title.setBounds(410,110,120,32);
 		password_title.setFont(new Font("Calibri",Font.PLAIN,14));
 		password_title.setForeground(Color.WHITE);
 		
-		connection_type = new JTextField("");
-		connection_type.setBounds(50,80,100,32);
+		server_title = new JLabel("Server");
+		server_title.setBounds(50,50,120,32);
+		server_title.setFont(new Font("Calibri",Font.PLAIN,14));
+		server_title.setForeground(Color.WHITE);
+		
+		forname_title = new JLabel("Forname");
+		forname_title.setBounds(50,230,120,32);
+		forname_title.setFont(new Font("Calibri",Font.PLAIN,14));
+		forname_title.setForeground(Color.WHITE);
+		forname_title.setVisible(false);
+		
+		lastname_title = new JLabel("Lastname");
+		lastname_title.setBounds(223,230,120,32);
+		lastname_title.setFont(new Font("Calibri",Font.PLAIN,14));
+		lastname_title.setForeground(Color.WHITE);
+		lastname_title.setVisible(false);
+		
+		authorizationkey_title = new JLabel("Key (Optional)");
+		authorizationkey_title.setBounds(396,230,120,32);
+		authorizationkey_title.setFont(new Font("Calibri",Font.PLAIN,14));
+		authorizationkey_title.setForeground(Color.WHITE);
+		authorizationkey_title.setVisible(false);
+		
+		
 		
 		server = new JTextField("");
-		server.setBounds(170,80,100,32);
+		server.setBounds(50,80,460,32);
 		
+		connection_type = new JTextField("");
+		connection_type.setBounds(50,140,100,32);
+				
 		database = new JTextField("");
-		database.setBounds(170,80,100,32);
+		database.setBounds(170,140,100,32);
 		
 		username = new JTextField("");
-		username.setBounds(290,80,100,32);
+		username.setBounds(290,140,100,32);
 		
 		password = new JTextField("");
-		password.setBounds(410,80,100,32);
+		password.setBounds(410,140,100,32);
 		
-		submitSettings = new JButton();
-		submitSettings.setBounds(general.centerObject(32), 150, 32, 32);
-		submitSettings.setBorderPainted(false);
-		submitSettings.setBorder(null);
-		submitSettings.setContentAreaFilled(false);
-		submitSettings.setIcon(new ImageIcon("res/search.png"));
+		testSQLConnection = new JButton("Testen");
+		testSQLConnection.setBounds(general.centerObject(32), 190, 32, 32);
+		testSQLConnection.setBorderPainted(false);
+		testSQLConnection.setBorder(null);
+		testSQLConnection.setContentAreaFilled(false);
+		testSQLConnection.setIcon(new ImageIcon("res/search.png"));
+		
+		forname = new JTextField("");
+		forname.setBounds(50,260,153,32);
+		forname.setVisible(false);
+		
+		lastname = new JTextField("");
+		lastname.setBounds(223,260,153,32);
+		lastname.setVisible(false);
+		
+		authorizationkey = new JPasswordField();
+		authorizationkey.setBounds(396,260,115,32);
+		authorizationkey.setVisible(false);
+		
+		saveSettings = new JButton();
+		saveSettings.setBounds(general.centerObject(32), 330, 32, 32);
+		saveSettings.setBorderPainted(false);
+		saveSettings.setBorder(null);
+		saveSettings.setContentAreaFilled(false);
+		saveSettings.setIcon(new ImageIcon("res/save.png"));
+		saveSettings.setVisible(false);
 		
 		add(minimizeBtn);
 		add(closeBtn);
@@ -116,15 +171,24 @@ public class SettingsFrame extends JFrame {
 		add(database_title);
 		add(username_title);
 		add(password_title);
+		add(server_title);
 		add(connection_type);
 		add(server);
 		add(database);
 		add(username);
 		add(password);
-		add(submitSettings);
+		add(testSQLConnection);
+		add(forname);
+		add(lastname);
+		add(authorizationkey);
+		add(forname_title);
+		add(lastname_title);
+		add(authorizationkey_title);
+		add(saveSettings);
 		add(jp);
 		
 		fillTextFields();
+		showMemberFieldsIfIsConnectedToDatabase();
 		
 		//Trigger
 		closeBtn.addActionListener(new ActionListener()
@@ -140,6 +204,22 @@ public class SettingsFrame extends JFrame {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				setState(Frame.ICONIFIED);
+			}
+		});
+		
+		testSQLConnection.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				onAfterValidateTestSQLConnection();
+			}
+		});
+		
+		saveSettings.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				onAfterValidateSaveSettings();
 			}
 		});
 		
@@ -171,11 +251,68 @@ public class SettingsFrame extends JFrame {
 		    });
 	}
 	
+	private void onAfterValidateTestSQLConnection() {
+		settings.changeSettings(getDatabaseTextFieldValues());
+		if (showMemberFieldsIfIsConnectedToDatabase()) {
+			JOptionPane.showMessageDialog(null, "Verbindung zur Datenbank war erfolgreich.", "Test erfolgreich", JOptionPane.OK_OPTION);
+		}else {
+			JOptionPane.showMessageDialog(null, "Verbindung zur Datenbank ist fehlgeschlagen.", "Test fehlgeschlagen", JOptionPane.OK_OPTION);
+		}
+	}
+	
+	private void onAfterValidateSaveSettings() {
+		if (!databaseConnection.checkIfUserExists()) {
+			databaseConnection.createNewUser(getMemberTextFieldValues());
+		}else {
+			databaseConnection.updateUserData(getMemberTextFieldValues());
+		}
+	}
+	
+	private boolean showMemberFieldsIfIsConnectedToDatabase() {
+		boolean isConnected = databaseConnection.checkConnection();
+		forname.setVisible(isConnected);
+		lastname.setVisible(isConnected);
+		authorizationkey.setVisible(isConnected);
+		forname_title.setVisible(isConnected);
+		lastname_title.setVisible(isConnected);
+		authorizationkey_title.setVisible(isConnected);
+		saveSettings.setVisible(isConnected);
+		if (isConnected) {
+			String memberData [] = databaseConnection.fetchForAndLastname(computername);
+			forname.setText(memberData[0]);
+			lastname.setText(memberData[1]);
+			if (databaseConnection.getAuthorizationLevel() > 0) {
+				authorizationkey_title.setVisible(false);
+				authorizationkey.setVisible(false);
+			}
+		}
+		return isConnected;
+	}
+	
+	private String [] getDatabaseTextFieldValues() {
+		String field [] = new String [6];
+		field[1] = connection_type.getText();
+		field[2] = server.getText();
+		field[3] = database.getText();
+		field[4] = username.getText();
+		field[5] = password.getText();
+		return field;
+	}
+	
+	private String [] getMemberTextFieldValues() {
+		String field [] = new String [3];
+		field[0] = forname.getText();
+		field[1] = lastname.getText();
+		field[2] = authorizationkey.getText();
+		return field;
+	}
+	
 	private void fillTextFields() {
-		String [] settingLines = settings.readAndGetSettings();
+		String [] settingLines = settings.readAndGetSettings(true);
 		connection_type.setText(settingLines[1]);
-		database.setText(settingLines[2]);
-		username.setText(settingLines[3]);
-		password.setText(settingLines[4]);
+		server.setText(settingLines[2]);
+		database.setText(settingLines[3]);
+		username.setText(settingLines[4]);
+		password.setText(settingLines[5]);
 	}
 }

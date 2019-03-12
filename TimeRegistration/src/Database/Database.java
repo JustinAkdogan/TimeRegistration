@@ -1,6 +1,4 @@
 package Database;
-import java.io.File;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -8,23 +6,18 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 
 import javax.swing.JOptionPane;
-import javax.swing.JTextField;
 
 import Functions.General;
-import Functions.Registration;
 import Functions.Settings;
-import GUI.Messages;
 
 public class Database {
 	
 	Connection con;
-	Registration registration = new Registration();
 	General general = new General();
 	Settings settings = new Settings();
 	final String userid = System.getProperty("user.name");
@@ -32,7 +25,7 @@ public class Database {
 	//#TODO Probleme mit öffnen aller Zeiterfassungen
 	public Database() {
 		if (checkConnection()) {
-			String [] sqlConnection = settings.readAndGetSettings();
+			String [] sqlConnection = settings.readAndGetSettings(true);
 			try {
 				this.con = DriverManager.getConnection("jdbc:"+ sqlConnection[1] +"://"+ sqlConnection[2] +"/"+ sqlConnection[3],sqlConnection[4],sqlConnection[5]);
 			} catch (SQLException e) {
@@ -46,7 +39,7 @@ public class Database {
 		final String CHECK_SQL_QUERY = "SELECT 1";
 		try {
 			Class.forName("com.mysql.jdbc.Driver");	
-			String [] sqlConnection = settings.readAndGetSettings();
+			String [] sqlConnection = settings.readAndGetSettings(true);
 			this.con = DriverManager.getConnection("jdbc:"+ sqlConnection[1] +"://"+ sqlConnection[2] +"/"+ sqlConnection[3],sqlConnection[4],sqlConnection[5]);
 			try {
 				final PreparedStatement statement = con.prepareStatement(CHECK_SQL_QUERY);
@@ -67,7 +60,6 @@ public class Database {
 		float dayInMillis = 86400000;
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss");
-//		String userid = System.getProperty("user.name");
 		Calendar c = Calendar.getInstance();
 		c.setTime(new Date());
 		int dayOfWeek = c.get(Calendar.DAY_OF_WEEK)-2; //#TODO
@@ -105,7 +97,6 @@ public class Database {
 		Statement st;
 		ResultSet rs;
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		//String userid = System.getProperty("user.name");
 		try {
 			st = con.createStatement();
 			rs = st.executeQuery("SELECT * FROM zeiterfassungen WHERE date='" + sdf.format(System.currentTimeMillis())+"' AND userid='"+ userid +"'");
@@ -125,7 +116,6 @@ public class Database {
 		Statement st;
 		ResultSet rs;
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		//String userid = System.getProperty("user.name");
 		try {
 			st = con.createStatement();
 			rs = st.executeQuery("SELECT * FROM zeiterfassungen WHERE date='" + sdf.format(System.currentTimeMillis())+"' AND userid='"+ userid +"'");
@@ -152,55 +142,60 @@ public class Database {
 	}
 		
 	//This function checks if the current user is new to the system
-	private void checkIfUserExists() {
-//		String userid = System.getProperty("user.name");
+	public boolean checkIfUserExists() {
 		Statement st;
 		ResultSet rs;
 		try {
 			st = con.createStatement();
 			rs = st.executeQuery("SELECT * FROM mitarbeiter WHERE computername='"+ userid +"'");
 			if (!rs.next()) {
-				createNewUser();
+//				createNewUser();
+				return false;
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+		return true;
 	}
 	
 	//This function creates a new User
-	private void createNewUser() {
+	public void createNewUser(String memberData []) {
 		PreparedStatement st;
 		ResultSet rs;
-		String [] memberName = new String [3];
-//		String userid = System.getProperty("user.name");
-		memberName = registration.registrationMessage();
+		memberData[2] = ""+general.checkAuthorizationKey(memberData[2]);
 	     try {	
 			String query = "INSERT INTO mitarbeiter (forname,lastname,computername,authorization) VALUES (?,?,?,?)";
 			st = con.prepareStatement(query);
-			st.setString(1, memberName[0]);
-			st.setString(2, memberName[1]);
+			st.setString(1, memberData[0]);
+			st.setString(2, memberData[1]);
 			st.setString(3, userid);
-			st.setString(4, memberName[2]);
-			st.execute();
-			
+			st.setString(4, memberData[2]);
+			int success = st.executeUpdate();
+			if (success > 0) {
+				JOptionPane.showMessageDialog(null, "You're now registered as a User. Please Restart!", "Registration succeed", JOptionPane.PLAIN_MESSAGE);
+				System.exit(1);
+			}else {
+				JOptionPane.showMessageDialog(null, "Please contact your Systemadministrator", "Registration failed", JOptionPane.PLAIN_MESSAGE);
+			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 	}
 	
 	//This function gets the fullname of the current user
-	public String fetchForAndLastname(String UserID) {
+	public String [] fetchForAndLastname(String UserID) {
 		Statement st;
 		ResultSet rs;
-		String memberName= "";
+		String [] memberName= new String [2];
 		try {
 			st = con.createStatement();
 			rs = st.executeQuery("SELECT * FROM mitarbeiter WHERE computername='"+ UserID +"'");
 			if (!rs.next()) {
-				createNewUser();
+				//createNewUser(); #TODO
 			}
 			if (rs.first()) {
-				memberName = rs.getString("forname") + " " + rs.getString("lastname");
+				memberName[0] = rs.getString("forname");
+				memberName[1] =	rs.getString("lastname");
 			}
 			return memberName;
 		} catch (SQLException e) {
@@ -211,7 +206,6 @@ public class Database {
 	
 	//This function gets the AuthorizationLevel from the current user
 	public int getAuthorizationLevel() {
-//		String userid = System.getProperty("user.name");
 		Statement st;
 		ResultSet rs;
 		int authorizationLevel = 0;
@@ -239,8 +233,9 @@ public class Database {
 			int datasets = 0;
 			String records [][] = new String [countAllTimeRegistrationDatasets()][7];
 			while(rs.next()) {
+				String fullname = fetchForAndLastname(rs.getString("userid"))[0]+ " " + fetchForAndLastname(rs.getString("userid"))[1];
 				records[counter][0] = rs.getString("date");
-				records[counter][1] = fetchForAndLastname(rs.getString("userid"));
+				records[counter][1] = fullname; //fetchForAndLastname(rs.getString("userid"));
 				records[counter][2] = rs.getString("projectid");
 				records[counter][3] = rs.getString("start");
 				records[counter][4] = rs.getString("end");
@@ -368,8 +363,9 @@ public class Database {
 			String records [][] = new String [countFilteredTimeRegistrationDatasets(query)][7]; //#TODO
 			int rowCounter = 0;
 			while(rs.next()) {
+				String fullname = fetchForAndLastname(rs.getString("userid"))[0]+ " " + fetchForAndLastname(rs.getString("userid"))[1];
 				records[rowCounter][0] = rs.getString("date");
-				records[rowCounter][1] = fetchForAndLastname(rs.getString("userid"));
+				records[rowCounter][1] = fullname;//fetchForAndLastname(rs.getString("userid"))[0]+ " " + fetchForAndLastname(rs.getString("userid"))[1];
 				records[rowCounter][2] = rs.getString("projectid");
 				records[rowCounter][3] = rs.getString("start");
 				records[rowCounter][4] = rs.getString("end");
@@ -438,6 +434,26 @@ public class Database {
 		String columnNames [] = {"Projekt","Startzeit","Endzeit","Pause","Beschreibung"}; 
 		return columnNames;
 	}
+	
+	public void updateUserData(String fields []) {
+		PreparedStatement st;
+		try {
+			String query;
+			fields[2] = ""+general.checkAuthorizationKey(fields[2]);
+			if (fields[2].contains("0")) {
+				fields[2] = ""+getAuthorizationLevel();
+			}
+			query = "UPDATE mitarbeiter SET forname=?,lastname=?,authorization=? WHERE computername='"+ userid + "'";
+			st = con.prepareStatement(query);
+			st.setString(1, fields[0]);
+			st.setString(2, fields[1]);
+			st.setString(3, fields[2]);
+			st.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
 	
 //	public void fetchHoursOfTheMonth() {
 //		Statement st;

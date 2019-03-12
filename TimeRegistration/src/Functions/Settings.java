@@ -33,7 +33,7 @@ public class Settings {
 		}
 	}
 	
-	public String [] readAndGetSettings() {
+	public String [] readAndGetSettings(boolean getPropertyValueOnly) {
 		BufferedReader reader;
 		try {
 			reader = new BufferedReader(new FileReader(settings_path));
@@ -42,7 +42,11 @@ public class Settings {
 	        int counter = 0;
 	        while ((currentLine = reader.readLine()) != null) {
 	        	if (counter > 0) {
-	        		settingLines[counter] = currentLine.substring(currentLine.indexOf("=")+1, currentLine.length());
+	        		if (getPropertyValueOnly) {
+	        			settingLines[counter] = currentLine.substring(currentLine.indexOf("=")+1, currentLine.length());
+	        		}else {
+	        			settingLines[counter] = currentLine;
+	        		}
 	        	}
 	        	counter++;
 	        }
@@ -68,5 +72,30 @@ public class Settings {
 				
 		}
 		return 0;
+	}
+	
+	public void changeSettings(String [] newValues) {
+		String [] settingsContent = readAndGetSettings(false);
+		settingsContent[0] = "[DATABASE]";
+		for (int i=1; i < settingsContent.length; i++) {
+			if (settingsContent[i] != null) {
+				settingsContent[i] = settingsContent[i].substring(0, settingsContent[i].indexOf("=")+1);
+				settingsContent[i] += newValues[i];
+			}
+			
+		}
+		BufferedWriter writer;
+		try {
+			writer = new BufferedWriter (new FileWriter(settings_path, false));
+			for (byte i=0; i < settingsContent.length; i++) {
+				System.out.println(settingsContent[i]);
+				writer.write(settingsContent[i]);
+				writer.newLine();
+			}
+			writer.close();
+		} catch (IOException e) {
+				
+		}
+		
 	}
 }

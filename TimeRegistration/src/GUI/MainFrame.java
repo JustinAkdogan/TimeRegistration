@@ -5,15 +5,11 @@ import java.awt.Font;
 import java.awt.Frame;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-
-import javax.management.modelmbean.ModelMBean;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -21,11 +17,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
-import javax.swing.table.DefaultTableModel;
-
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
@@ -33,11 +26,9 @@ import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.data.category.DefaultCategoryDataset;
-
 import Database.Database;
 import Functions.CreateWorkspace;
 import Functions.General;
-import Functions.Settings;
 
 public class MainFrame extends JFrame {
 	
@@ -53,7 +44,7 @@ public class MainFrame extends JFrame {
 	JPanel jp = new JPanel();
 	JScrollPane scrollPane = new JScrollPane();
 	DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-	JFreeChart chart = ChartFactory.createBarChart3D("Offene Arbeitszeiten","","", dataset, PlotOrientation.VERTICAL, false, false, false);
+	JFreeChart chart = ChartFactory.createBarChart3D("Arbeitszeiten","","", dataset, PlotOrientation.VERTICAL, false, false, false);
 	CategoryPlot catplot = chart.getCategoryPlot();
 	BarRenderer barRenderer = (BarRenderer) catplot.getRenderer();
 	ChartPanel chartPanel = new ChartPanel(chart);
@@ -64,7 +55,7 @@ public class MainFrame extends JFrame {
 	private java.awt.Point initialClick;
 	String userid = System.getProperty("user.name");
 	int day = 0;
-	String memberName = "TEST";
+	String memberName = "Keine Verbindung";
     Date date = new Date();
     SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
     
@@ -107,6 +98,7 @@ public class MainFrame extends JFrame {
 		OnAfterSQLConnect();
 		setupBarChart();
 		refreshBarChart();
+		disableSQLObjectsIfNoConnectionFound();
 		
 		
 		//Element Options
@@ -335,7 +327,7 @@ public class MainFrame extends JFrame {
 	
 	private void OnAfterSQLConnect() {
 		if (isConnectedToSQL) {
-			memberName = database.fetchForAndLastname(userid);
+			memberName = database.fetchForAndLastname(userid)[0] + " " + database.fetchForAndLastname(userid)[1];
 			weekHours = database.fetchAllTimeRegistrationsFromTheWeek();
 		}
 	}
@@ -343,13 +335,37 @@ public class MainFrame extends JFrame {
 	private String [][] getTableData() {
 		if (!isConnectedToSQL) {
 			String [][] data = {
-					{"NO","CONNECTION","TO","DATABASE","."},
-					{"NO","CONNECTION","TO","DATABASE","."}
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
+					{"NO","CONNECTION","TO","DATABASE",":("},
 			};
 			return data;
 		}else {
 			String[][] data = database.fetchAllTimeRegistrationsFromToday();
 			return data;
+		}
+	}
+	
+	private void disableSQLObjectsIfNoConnectionFound() {
+		if (!isConnectedToSQL) {
+			table.disable();
 		}
 	}
 				
@@ -375,7 +391,9 @@ public class MainFrame extends JFrame {
 	}
 	
 	public void refreshBarChart() {
-		//float [] weekHours = database.fetchAllTimeRegistrationsFromTheWeek();
+		if (isConnectedToSQL) {
+			float [] weekHours = database.fetchAllTimeRegistrationsFromTheWeek();
+		}
 		dataset.setValue(weekHours[0], "", "Montag");
 		dataset.setValue(weekHours[1], "", "Dienstag");
 		dataset.setValue(weekHours[2], "", "Mittwoch");
